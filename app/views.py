@@ -37,16 +37,12 @@ def login():
     form = LoginForm()
     if request.method == "POST":
         if form.validate_on_submit:
-            username = form.username.data
-            password = form.password.data
+            user = UserProfile.query.filter_by(username=form.username.data).first() # check for the user
 
-            user = UserProfile.query.filter_by(username=username).first() # check for the user
-
-            if user is not None and check_password_hash(user.password, password):
+            if user is not None and check_password_hash(user.password, form.password.data): # validate the password
                 login_user(user)
                 flash("Logged in successfully.", 'success')
-
-                return redirect(url_for("secure_page"))  # they should be redirected to a secure-page route instead
+                return redirect(url_for("secure_page")) 
             else:
                 flash("Username or Password is incorrect.", 'danger')
     return render_template("login.html", form=form)
@@ -57,16 +53,33 @@ def secure_page():
     return render_template('secure_page.html')
 
 
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash("You have been logged out.", 'danger')
+    return redirect(url_for('home'))
+
 # user_loader callback. This callback is used to reload the user object from
 # the user ID stored in the session
 @login_manager.user_loader
 def load_user(id):
     return UserProfile.query.get(int(id))
 
+# Flash errors from the form if validation fails with Flask-WTF
+# http://flask.pocoo.org/snippets/12/
+def flash_errors(form):
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(u"Error in the %s field - %s" % (
+                getattr(form, field).label.text,
+                error
+            ), 'danger')
+
+
 ###
 # The functions below should be applicable to all Flask apps.
 ###
-
 
 @app.route('/<file_name>.txt')
 def send_text_file(file_name):
