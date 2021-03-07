@@ -31,21 +31,24 @@ def about():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if current_user.is_authenticated:
+    if current_user.is_authenticated: # check to see if the user is already logged in
         return redirect(url_for('secure_page'))
 
     form = LoginForm()
-    if request.method == "POST":
-        if form.validate_on_submit:
-            user = UserProfile.query.filter_by(username=form.username.data).first() # check for the user
+    if request.method == "POST" and form.validate_on_submit():
+        user = UserProfile.query.filter_by(username=form.username.data).first() # check for the user
 
-            if user is not None and check_password_hash(user.password, form.password.data): # validate the password
-                login_user(user)
-                flash("Logged in successfully.", 'success')
-                return redirect(url_for("secure_page")) 
-            else:
-                flash("Username or Password is incorrect.", 'danger')
+        if user is not None and check_password_hash(user.password, form.password.data): # validate the password
+            login_user(user)
+            flash("Logged in successfully.", 'success')
+
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for("secure_page")) 
+        else:
+            flash("Username or Password is incorrect.", 'danger')
+    flash_errors(form)
     return render_template("login.html", form=form)
+
 
 @app.route('/secure-page')
 @login_required
@@ -65,6 +68,17 @@ def logout():
 @login_manager.user_loader
 def load_user(id):
     return UserProfile.query.get(int(id))
+
+# Flash errors from the form if validation fails with Flask-WTF
+# http://flask.pocoo.org/snippets/12/
+def flash_errors(form):
+    for field, errors in form.errors.items():
+        for error in errors:
+            flash(u"Error in the %s field - %s" % (
+                getattr(form, field).label.text,
+                error
+            ), 'danger')
+
 
 # Flash errors from the form if validation fails with Flask-WTF
 # http://flask.pocoo.org/snippets/12/
